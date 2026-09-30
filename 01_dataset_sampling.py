@@ -22,7 +22,7 @@ STATEMENT_TYPES = [
     "conj",
     "disj",
     "de",
-    "neg_de",
+    # "neg_de" is another type, however, it is not suited for string matching and is handled separately
 ]  # 'affirmative' is the default type
 DECEPTION_TYPES = [
     "abstraction",
@@ -47,11 +47,11 @@ def topic_and_statement_type(csv_name):
     statement_type = "affirmative"  # if none of the type names is in the csv_name, affirmative is the default type
     for s in STATEMENT_TYPES:
         if s in csv_name:
-            statement_type = s
+            if "de" in csv_name and "neg" in csv_name:
+                statement_type = "neg_de"
+            else:
+                statement_type = s
             break
-
-    if "de" in statement_type:  # (de and neg_de each have only 50 statements and are thus combined)
-        statement_type = "de_or_neg_de"
 
     return topic, statement_type
 
@@ -79,46 +79,38 @@ def main():
     for csv_path in csv_files:
         csv_name = csv_path.name
 
-        # Skip standalone 'neg_de' files because they are merged when processing 'de'
-        if "neg" in csv_name and "de" in csv_name:
-            continue
-
+        # Filter statement and label columns and true rows
         df = pd.read_csv(csv_path)[["statement", "label"]]
-
-        # Handle combining 'de' and 'neg_de' datasets
-        if "_de" in csv_name:
-            neg_de_name = "neg_" + csv_name
-            neg_de_path = csv_path.parent / neg_de_name
-            neg_df = pd.read_csv(neg_de_path)[["statement", "label"]]
-            df = pd.concat([df, neg_df], ignore_index=True)
+        df["label"] = df["label"].astype(int)
+        df = df[df["label"]==1]
 
         topic, statement_type = topic_and_statement_type(csv_name)
 
         # Ensure we do not request more samples than available in small datasets
-        sampled_rows = df.sample(n=99, random_state=SEED).reset_index(
+        sample_size = min(198,len(df.index))
+        sampled_rows = df.sample(n=sample_size, random_state=SEED).reset_index(
             drop=True
         )
 
-        # Distribute 99 rows evenly across the 9 deception types
-        deception_assignments = DECEPTION_TYPES * 11
+        # Distribute rows evenly across the 9 deception types
+        deception_assignments = (DECEPTION_TYPES * (sample_size // len(DECEPTION_TYPES) + 1))
         np.random.seed(SEED)
         np.random.shuffle(deception_assignments)
+        deception_assignments = deception_assignments[:sample_size]
 
         # Construct new DataFrame records
         for idx, row in sampled_rows.iterrows():
-            is_true = row["label"] == 1
             new_row = {
                 "context_with_question": None,
                 "true_non-misleading_answer": (
-                    row["statement"] if is_true else None
+                    row["statement"]
                 ),
-                "false_answer": row["statement"] if not is_true else None,
-                "misleading_non-falsity": None,
+                "false_answer": None,
+                "misleading_non-false_answer": None,
                 "unrelated_or_nonsense": None,
                 "topic": topic,
                 "statement_type": statement_type,
                 "deception_type": deception_assignments[idx],
-                "suggested_falsity": None,
             }
             rows_to_append.append(new_row)
 
@@ -132,3 +124,5 @@ if __name__ == "__main__":
     df = main()
     df.to_csv("dataset/sampled_dataset_with_types.csv")
     print(f"Total sampled rows: {len(df)}")
+    print(df.groupby(["statement_type", "topic"]).size())
+    print(df.groupby(["deception_type"]).size())
