@@ -3,10 +3,10 @@
 #SBATCH --output=llm_test_%j.out
 #SBATCH --error=llm_test_%j.err
 #SBATCH -N 1
-#SBATCH --partition=fat_gpu
-#SBATCH --gpus=2
+#SBATCH --partition=gpu
+#SBATCH --gpus=1
 #SBATCH --cpus-per-gpu=4
-#SBATCH --mem=128G
+#SBATCH --mem=32G
 #SBATCH --time=00:30:00
 
 module load python
