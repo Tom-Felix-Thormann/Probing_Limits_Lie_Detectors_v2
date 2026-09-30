@@ -4,7 +4,7 @@
 #SBATCH --error=llm_test_%j.err
 #SBATCH -N 1
 #SBATCH --partition=fat_gpu
-#SBATCH --gpus=4
+#SBATCH --gpus=2
 #SBATCH --cpus-per-gpu=4
 #SBATCH --mem=128G
 #SBATCH --time=00:30:00
