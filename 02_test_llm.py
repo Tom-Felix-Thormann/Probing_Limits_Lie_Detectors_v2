@@ -14,10 +14,11 @@ def find_model_dir(base_dir):
     Find the model directory dynamically, depending on whether the script is executed locally or on the cluster
     """
 
-    model_dir = [
-        p for p in base_dir.iterdir()
-        if p.is_dir() and "llama" in p.name.lower() and (p / "config.json").exists()
-    ][0]
+    # model_dir = [
+    #     p for p in base_dir.iterdir()
+    #     if p.is_dir() and "llama" in p.name.lower() and (p / "config.json").exists()
+    # ][0]
+    model_dir = base_dir / "llama-3.1-8B-instruct" # for test with 8b model first
 
     return model_dir
 
