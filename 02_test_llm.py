@@ -18,6 +18,7 @@ def find_model_dir(base_dir):
     #     p for p in base_dir.iterdir()
     #     if p.is_dir() and "llama" in p.name.lower() and (p / "config.json").exists()
     # ][0]
+    # instead of taking the first model from the list, one may also specify a system argument that the name should be checke against such as "8b" or "70b"
     model_dir = base_dir / "llama-3.1-8B-instruct" # for test with 8b model first
 
     return model_dir
