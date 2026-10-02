@@ -64,6 +64,7 @@ def main():
             "unrelated_or_nonsense",
             "topic",
             "statement_type",
+            "manual_or_generated",
             "deception_type",
             "suggested_falsity",
         ]
@@ -90,15 +91,18 @@ def main():
             drop=True
         )
 
-        # Distribute rows evenly across the 9 deception types
-        deception_assignments = (DECEPTION_TYPES * (sample_size // len(DECEPTION_TYPES) + 1))
+        # Distribute rows evenly across the 9 deception types, for each deception type, one row will be assigned to "manual" and the rest to "generated"
+        deception_assignments_generated = ([(t, "generated") for t in DECEPTION_TYPES] * (sample_size // len(DECEPTION_TYPES)))
+        deception_assignments_manual = [(t, "manual") for t in DECEPTION_TYPES]
         np.random.seed(SEED)
-        np.random.shuffle(deception_assignments)
+        np.random.shuffle(deception_assignments_generated)
+        deception_assignments = deception_assignments_manual + deception_assignments_generated
         deception_assignments = deception_assignments[:sample_size]
 
         # Construct new DataFrame records
         for idx, row in sampled_rows.iterrows():
             new_row = {
+                "manual_or_generated": deception_assignments[idx][1],
                 "context_with_question": None,
                 "true_non-misleading_answer": (
                     row["statement"]
@@ -108,13 +112,14 @@ def main():
                 "unrelated_or_nonsense": None,
                 "topic": topic,
                 "statement_type": statement_type,
-                "deception_type": deception_assignments[idx],
+                "deception_type": deception_assignments[idx][0],
             }
             rows_to_append.append(new_row)
 
     sampled_df = pd.concat(
         [sampled_df, pd.DataFrame(rows_to_append)], ignore_index=True
     )
+    sampled_df["id"] = sampled_df.index + 1
     return sampled_df
 
 
@@ -123,4 +128,4 @@ if __name__ == "__main__":
     df.to_csv("dataset/sampled_dataset_with_types.csv")
     print(f"Total sampled rows: {len(df)}")
     print(df.groupby(["statement_type", "topic"]).size())
-    print(df.groupby(["deception_type"]).size())
+    print(df.groupby(["deception_type","manual_or_generated"]).size())

@@ -6,20 +6,18 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 SCRIPT_DIR = Path(__file__).resolve().parent
 MODEL_BASE_DIR = SCRIPT_DIR / "model_weights"
 
-SYSTEM_PROMPT = "You are a pirate. Answer in a pirate style."
+SYSTEM_PROMPT = "You are a pirate. Answer in a pirate style, but be brief."
 USER_PROMPT = "Hello, how are you?"
 
 def find_model_dir(base_dir):
     """
     Find the model directory dynamically, depending on whether the script is executed locally or on the cluster
     """
-
-    # model_dir = [
-    #     p for p in base_dir.iterdir()
-    #     if p.is_dir() and "llama" in p.name.lower() and (p / "config.json").exists()
-    # ][0]
-    # instead of taking the first model from the list, one may also specify a system argument that the name should be checke against such as "8b" or "70b"
-    model_dir = base_dir / "llama-3.1-8B-instruct" # for test with 8b model first
+    if len(sys.argv) > 1:
+        model_size = sys.argv[1]  # system argument to specify model size
+    else:
+        model_size = "8"  # default model size
+    model_dir = base_dir / f"llama-3.1-{model_size}B-instruct" # for test with 8b model first
 
     return model_dir
 
