@@ -127,9 +127,9 @@ def main():
 if __name__ == "__main__":
     df = main()
     df.to_csv("dataset/sampled_dataset_with_types.csv", index=False)
-    if "sampled_dataset_manual.xlsx" not in [f.name for f in Path("dataset").glob("*.xlsx")]:
+    if "manual_entries_sampled.xlsx" not in [f.name for f in Path("dataset").glob("*.xlsx")]:
         df_manual = df[df["manual_or_generated"] == "manual"]
-        df_manual.to_excel("dataset/sampled_dataset_manual.xlsx", index=False)
+        df_manual.to_excel("dataset/manual_entries_sampled.xlsx", index=False)
     print(f"Total sampled rows: {len(df)}")
     print(df.groupby(["statement_type", "topic"]).size())
     print(df.groupby(["deception_type","manual_or_generated"]).size())
