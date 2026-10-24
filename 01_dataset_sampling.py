@@ -26,12 +26,13 @@ DECEPTION_TYPES = [
     "abstraction",
     "contr_distraction",
     "equivocation",
-    "FI_quantitiy",
+    "FI_quantity",
     "FI_relevance",
     "understatement",
     "overstatement",
     "obfuscation",
     "half_truth",
+    "augmentation",
 ]
 
 
@@ -60,13 +61,12 @@ def main():
             "context_with_question",
             "true_non-misleading_answer",
             "false_answer",
-            "misleading_non-falsity",
+            "misleading_non-false_answer",
             "unrelated_or_nonsense",
             "topic",
             "statement_type",
             "manual_or_generated",
             "deception_type",
-            "suggested_falsity",
         ]
     )
 
@@ -91,7 +91,7 @@ def main():
             drop=True
         )
 
-        # Distribute rows evenly across the 9 deception types, for each deception type, one row will be assigned to "manual" and the rest to "generated"
+        # Distribute rows evenly across the 10 deception types, for each deception type, one row will be assigned to "manual" and the rest to "generated"
         deception_assignments_generated = ([(t, "generated") for t in DECEPTION_TYPES] * (sample_size // len(DECEPTION_TYPES)))
         deception_assignments_manual = [(t, "manual") for t in DECEPTION_TYPES]
         np.random.seed(SEED)
@@ -104,15 +104,16 @@ def main():
             new_row = {
                 "manual_or_generated": deception_assignments[idx][1],
                 "context_with_question": None,
-                "true_non-misleading_answer": (
-                    row["statement"]
-                ),
+                "true_non-misleading_answer": None,
                 "false_answer": None,
                 "misleading_non-false_answer": None,
                 "unrelated_or_nonsense": None,
                 "topic": topic,
                 "statement_type": statement_type,
                 "deception_type": deception_assignments[idx][0],
+                "original_true_statement" : (
+                    row["statement"]
+                )
             }
             rows_to_append.append(new_row)
 
@@ -125,7 +126,10 @@ def main():
 
 if __name__ == "__main__":
     df = main()
-    df.to_csv("dataset/sampled_dataset_with_types.csv")
+    df.to_csv("dataset/sampled_dataset_with_types.csv", index=False)
+    if "sampled_dataset_manual.xlsx" not in [f.name for f in Path("dataset").glob("*.xlsx")]:
+        df_manual = df[df["manual_or_generated"] == "manual"]
+        df_manual.to_excel("dataset/sampled_dataset_manual.xlsx", index=False)
     print(f"Total sampled rows: {len(df)}")
     print(df.groupby(["statement_type", "topic"]).size())
     print(df.groupby(["deception_type","manual_or_generated"]).size())
