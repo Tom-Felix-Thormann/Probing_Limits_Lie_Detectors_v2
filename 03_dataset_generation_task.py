@@ -131,11 +131,21 @@ def merge_completed_entries(sampled, manual):
     if len(unknown_ids) > 0:
         raise ValueError(f"IDs in {MANUAL_PATH.name} that are not in {SAMPLED_PATH.name}: {list(unknown_ids)}")
 
-    # Sanity check that the ids point to the same statements in both files
+    # Sanity check that the ids point to the same statements in both files. A few statements were
+    # corrected during the manual completion; the corrected version from the xlsx is kept, since the
+    # answers were written for it. Many differences would rather mean that the files do not belong together.
     sampled_statements = sampled.loc[manual.index, "original_true_statement"].str.strip()
     mismatched = manual.index[sampled_statements != manual["original_true_statement"].str.strip()]
+    if len(mismatched) > 0.1 * len(manual):
+        raise ValueError(
+            f"original_true_statement differs for {len(mismatched)} of {len(manual)} ids. "
+            f"Do {MANUAL_PATH.name} and {SAMPLED_PATH.name} belong to the same sampling run?"
+        )
     if len(mismatched) > 0:
-        raise ValueError(f"original_true_statement differs between both files for ids: {list(mismatched)}")
+        print(f"original_true_statement was edited in {MANUAL_PATH.name} for {len(mismatched)} ids; using the edited version:")
+        for i in mismatched:
+            print(f"  id {i}:\n    csv:  {sampled.at[i, 'original_true_statement']}\n    xlsx: {manual.at[i, 'original_true_statement']}")
+        sampled.loc[mismatched, "original_true_statement"] = manual.loc[mismatched, "original_true_statement"]
 
     for col in FILLED_COLUMNS:
         sampled[col] = sampled[col].astype(object)
