@@ -104,24 +104,36 @@ def clean_output(text):
     return text
 
 
-def generate_batch(model, tokenizer, prompts, max_new_tokens):
+def tokenize_prompts(model, tokenizer, prompts):
     # the chat template already contains the special tokens (e.g. <|begin_of_text|>)
-    inputs = tokenizer(prompts, return_tensors="pt", padding=True, add_special_tokens=False).to(model.device)
+    return tokenizer(prompts, return_tensors="pt", padding=True, add_special_tokens=False).to(model.device)
+
+
+def generate_batch(model, tokenizer, prompts, max_new_tokens, do_sample=True):
+    inputs = tokenize_prompts(model, tokenizer, prompts)
+    if do_sample:
+        sampling = dict(do_sample=True, temperature=TEMPERATURE, top_p=TOP_P)
+    else:  # greedy; None overrides sampling defaults from the model's generation_config
+        sampling = dict(do_sample=False, temperature=None, top_p=None)
     with torch.no_grad():
         output_ids = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
-            do_sample=True,
-            temperature=TEMPERATURE,
-            top_p=TOP_P,
             pad_token_id=tokenizer.pad_token_id,
+            **sampling,
         )
     new_tokens = output_ids[:, inputs["input_ids"].shape[1]:]
     return [clean_output(t) for t in tokenizer.batch_decode(new_tokens, skip_special_tokens=True)]
 
 
-def run_generation(model, tokenizer, prompts, max_new_tokens, batch_size, on_batch, desc):
-    """Generate for a list of (row_index, prompt_text) pairs in batches.
+def run_generation(model, tokenizer, prompts, max_new_tokens, batch_size, on_batch, desc, do_sample=True):
+    """Generate for a list of (row_index, prompt_text) pairs in batches (see run_in_batches)."""
+    batch_fn = lambda texts: generate_batch(model, tokenizer, texts, max_new_tokens, do_sample)
+    run_in_batches(prompts, batch_size, batch_fn, on_batch, desc)
+
+
+def run_in_batches(prompts, batch_size, batch_fn, on_batch, desc):
+    """Apply batch_fn(prompt_texts) -> outputs to a list of (row_index, prompt_text) pairs in batches.
 
     on_batch(row_indices, outputs) is called after every batch, so the caller can store and save results.
     If a batch does not fit into GPU memory, the batch size is halved and the batch is retried.
@@ -133,7 +145,7 @@ def run_generation(model, tokenizer, prompts, max_new_tokens, batch_size, on_bat
     while start < len(ordered):
         batch = ordered[start:start + batch_size]
         try:
-            outputs = generate_batch(model, tokenizer, [p for _, p in batch], max_new_tokens)
+            outputs = batch_fn([p for _, p in batch])
         except torch.cuda.OutOfMemoryError:
             if batch_size == 1:
                 raise
