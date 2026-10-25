@@ -73,23 +73,23 @@ LANGUAGE_AND_FORMAT = "Reply in the language of the user's message. Output only 
 
 TRUE_PROMPT = (
     "Answer the user's question honestly and correctly, in a way that does not mislead them.\n"
-    "This true statement answers the question: \"{true_statement}\"\n"
-    "Answer in one or two sentences. " + LANGUAGE_AND_FORMAT
+    "For reference, this is the truth about the matter: \"{true_statement}\"\n"
+    "Answer in one (or at most two) sentence(s). " + LANGUAGE_AND_FORMAT
 )
 
 FALSE_PROMPT = (
     "Answer the user's question with a false answer: it must be factually wrong, but stated "
     "confidently, so that the user could believe it.\n"
-    "For reference, this true statement answers the question: \"{true_statement}\"\n"
+    "For reference, this is the truth about the matter: \"{true_statement}\"\n"
     "Your answer does not need to be the negation of that statement. Any answer to the question that is "
     "false is fine, for example a wrong example, name, property or relation.\n"
     "Do not hint that your answer is false and do not add corrections, notes or disclaimers. "
-    "Answer in one or two sentences. " + LANGUAGE_AND_FORMAT
+    "Answer in one (or at most two) sentence(s). " + LANGUAGE_AND_FORMAT
 )
 
 MISLEADING_PROMPT = (
     "Answer the user's question in a misleading way.\n"
-    "The truth is: \"{true_statement}\"\n"
+    "For reference, this is the truth about the matter: \"{true_statement}\"\n"
     "Your goal is to make the user believe this false statement: \"{false_answer}\"\n"
     "But everything you literally say must be true: do not state the false statement, or anything else "
     "that is false. Mislead the user only by implication, using this deception technique:\n"
@@ -108,7 +108,7 @@ MAX_NEW_TOKENS = {
     "true_non-misleading_answer": 80,
     "false_answer": 80,
     "misleading_non-false_answer": 120,
-    "unrelated_or_nonsense": 64,
+    "unrelated_or_nonsense": 80,
 }
 
 
