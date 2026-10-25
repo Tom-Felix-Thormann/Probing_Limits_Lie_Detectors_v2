@@ -1,0 +1,128 @@
+Sun Oct 25 14:41:44 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 595.91.07              Driver Version: 595.91.07      CUDA Version: 13.2     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100 80GB HBM3          On  |   00000000:46:00.0 Off |                    0 |
+| N/A   43C    P0             75W /  700W |       0MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA H100 80GB HBM3          On  |   00000000:54:00.0 Off |                    0 |
+| N/A   32C    P0             73W /  700W |       0MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA H100 80GB HBM3          On  |   00000000:AF:00.0 Off |                    0 |
+| N/A   46C    P0             77W /  700W |       0MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA H100 80GB HBM3          On  |   00000000:CF:00.0 Off |                    0 |
+| N/A   37C    P0             70W /  700W |       0MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+llama-3.1-70B-instruct: 698 rows
+Loading model: llama-3.1-70B-instruct
+llama-3.1-70B-instruct true_non-misleading_answer: 32/698
+llama-3.1-70B-instruct true_non-misleading_answer: 64/698
+llama-3.1-70B-instruct true_non-misleading_answer: 96/698
+llama-3.1-70B-instruct true_non-misleading_answer: 128/698
+llama-3.1-70B-instruct true_non-misleading_answer: 160/698
+llama-3.1-70B-instruct true_non-misleading_answer: 192/698
+llama-3.1-70B-instruct true_non-misleading_answer: 224/698
+llama-3.1-70B-instruct true_non-misleading_answer: 256/698
+llama-3.1-70B-instruct true_non-misleading_answer: 288/698
+llama-3.1-70B-instruct true_non-misleading_answer: 320/698
+llama-3.1-70B-instruct true_non-misleading_answer: 352/698
+llama-3.1-70B-instruct true_non-misleading_answer: 384/698
+llama-3.1-70B-instruct true_non-misleading_answer: 416/698
+llama-3.1-70B-instruct true_non-misleading_answer: 448/698
+llama-3.1-70B-instruct true_non-misleading_answer: 480/698
+llama-3.1-70B-instruct true_non-misleading_answer: 512/698
+llama-3.1-70B-instruct true_non-misleading_answer: 544/698
+llama-3.1-70B-instruct true_non-misleading_answer: 576/698
+llama-3.1-70B-instruct true_non-misleading_answer: 608/698
+llama-3.1-70B-instruct true_non-misleading_answer: 640/698
+llama-3.1-70B-instruct true_non-misleading_answer: 672/698
+llama-3.1-70B-instruct true_non-misleading_answer: 698/698
+llama-3.1-70B-instruct false_answer: 32/698
+llama-3.1-70B-instruct false_answer: 64/698
+llama-3.1-70B-instruct false_answer: 96/698
+llama-3.1-70B-instruct false_answer: 128/698
+llama-3.1-70B-instruct false_answer: 160/698
+llama-3.1-70B-instruct false_answer: 192/698
+llama-3.1-70B-instruct false_answer: 224/698
+llama-3.1-70B-instruct false_answer: 256/698
+llama-3.1-70B-instruct false_answer: 288/698
+llama-3.1-70B-instruct false_answer: 320/698
+llama-3.1-70B-instruct false_answer: 352/698
+llama-3.1-70B-instruct false_answer: 384/698
+llama-3.1-70B-instruct false_answer: 416/698
+llama-3.1-70B-instruct false_answer: 448/698
+llama-3.1-70B-instruct false_answer: 480/698
+llama-3.1-70B-instruct false_answer: 512/698
+llama-3.1-70B-instruct false_answer: 544/698
+llama-3.1-70B-instruct false_answer: 576/698
+llama-3.1-70B-instruct false_answer: 608/698
+llama-3.1-70B-instruct false_answer: 640/698
+llama-3.1-70B-instruct false_answer: 672/698
+llama-3.1-70B-instruct false_answer: 698/698
+llama-3.1-70B-instruct misleading_non-false_answer: 32/698
+llama-3.1-70B-instruct misleading_non-false_answer: 64/698
+llama-3.1-70B-instruct misleading_non-false_answer: 96/698
+llama-3.1-70B-instruct misleading_non-false_answer: 128/698
+llama-3.1-70B-instruct misleading_non-false_answer: 160/698
+llama-3.1-70B-instruct misleading_non-false_answer: 192/698
+llama-3.1-70B-instruct misleading_non-false_answer: 224/698
+llama-3.1-70B-instruct misleading_non-false_answer: 256/698
+llama-3.1-70B-instruct misleading_non-false_answer: 288/698
+llama-3.1-70B-instruct misleading_non-false_answer: 320/698
+llama-3.1-70B-instruct misleading_non-false_answer: 352/698
+llama-3.1-70B-instruct misleading_non-false_answer: 384/698
+llama-3.1-70B-instruct misleading_non-false_answer: 416/698
+llama-3.1-70B-instruct misleading_non-false_answer: 448/698
+llama-3.1-70B-instruct misleading_non-false_answer: 480/698
+llama-3.1-70B-instruct misleading_non-false_answer: 512/698
+llama-3.1-70B-instruct misleading_non-false_answer: 544/698
+llama-3.1-70B-instruct misleading_non-false_answer: 576/698
+llama-3.1-70B-instruct misleading_non-false_answer: 608/698
+llama-3.1-70B-instruct misleading_non-false_answer: 640/698
+llama-3.1-70B-instruct misleading_non-false_answer: 672/698
+llama-3.1-70B-instruct misleading_non-false_answer: 698/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 32/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 64/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 96/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 128/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 160/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 192/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 224/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 256/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 288/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 320/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 352/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 384/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 416/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 448/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 480/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 512/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 544/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 576/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 608/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 640/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 672/698
+llama-3.1-70B-instruct unrelated_or_nonsense: 698/698
+Done: /home/bergetl3/Probing_Limits_Lie_Detectors_v2/dataset/generated_answers/llama-3.1-70B-instruct.csv
+Empty answers per column:
+true_non-misleading_answer     0
+false_answer                   0
+misleading_non-false_answer    0
+unrelated_or_nonsense          0

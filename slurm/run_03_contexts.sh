@@ -8,7 +8,7 @@
 #SBATCH --gpus=4
 #SBATCH --cpus-per-gpu=8
 #SBATCH --mem=200G
-#SBATCH --time=12:00:00
+#SBATCH --time=02:00:00
 
 # Steps 1 + 2: merge the manual entries, assign rows to models, generate contexts with llama-3.1-70B.
 # Resumes automatically if the job is interrupted: just submit it again.
