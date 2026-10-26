@@ -8,7 +8,7 @@
 #SBATCH --gpus=4
 #SBATCH --cpus-per-gpu=8
 #SBATCH --mem=200G
-#SBATCH --time=04:00:00
+#SBATCH --time=03:00:00
  
 # Validates the misleading answers (generated rows + manual baseline) with llama-3.1-70B and makes the plots in figures/.
 # Every run starts from scratch and overwrites dataset/dataset_validated.csv and the plots in figures/.
