@@ -1,11 +1,17 @@
-"""Validate the misleading answers (generated rows and the manual baseline) with llama-3.1-70B-instruct (zero-shot).
+"""Validate the misleading answers (generated rows and the manual baseline) with llama-3.1-70B-instruct.
 
 For every row, the model is shown the user's context with question and the misleading answer, and:
     1. inferred_deception_type     picks which of the 10 deception types the answer uses, based on the definitions
+                                   (few-shot: 20 manual examples, 2 per deception type)
     2. inferred_implied_statement  states the information the answer conveys to the user
-                                   (the model is not told that the answer is misleading)
+                                   (few-shot: 5 manual examples whose answer is the false statement;
+                                   the model is not told that the answer is misleading)
     3. match                       decides (yes/no) whether the inferred statement from 2. and the generated
-                                   false answer convey broadly the same information in the given context
+                                   false answer convey broadly the same information in the given context (zero-shot)
+
+The few-shot examples come from the manual rows of OTHER topics than the row in question, so the model cannot
+just copy the pattern of a very similar example (and a manual row never sees itself as an example). They are
+sampled per row with a seed derived from the row id, so every prompt is reproducible.
 
 For the two choices (1. and 3.), the answer is read from the model's next-token probabilities over the
 allowed options (option letters / "Yes" and "No"), so every row gets a valid label without parsing free text.
@@ -16,8 +22,8 @@ The manual rows (manual and manual+claude) are validated the same way and shown 
 plots: it shows how well the validator does on human-written misleading answers, i.e. the ceiling against
 which the model scores should be read.
 
-Results are saved to dataset/dataset_validated.csv after every batch; an interrupted job resumes from it.
-Plots are saved to figures/.
+Every run starts from full_dataset_generated.csv and overwrites dataset/dataset_validated.csv (saved after
+every batch, so the progress is visible) and the plots in figures/.
 
 Usage:
     python 05_validate_generations.py               # validation and plots
@@ -33,6 +39,7 @@ import matplotlib
 matplotlib.use("Agg")  # no display on the cluster
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -67,25 +74,29 @@ BASELINE_LABEL = "Manual (baseline)"  # manual and manual+claude rows together
 OPTION_LABELS = "ABCDEFGHIJ"
 MAX_NEW_TOKENS_IMPLIED = 80  # one sentence
 
-CLASSIFY_PROMPT = (
-    "Below is a short conversation in which a user asks a question and gets a reply. "
+N_CLASSIFY_EXAMPLES_PER_TYPE = 2  # 2 x 10 deception types = 20 examples
+N_IMPLIED_EXAMPLES = 5  # from 5 different topics, each with a different deception type
+
+# The few-shot prompts are chats: the instruction is the system message, every example is a user turn
+# (CONVERSATION) followed by the correct assistant turn, and the row in question is the last user turn.
+CLASSIFY_SYSTEM_PROMPT = (
+    "You will see short conversations in which a user asks a question and gets a reply. "
     "The reply is deceptive: it tries to make the user believe something false. "
-    "Which of the following deception techniques does the reply use?\n\n"
+    "Decide which of the following deception techniques the reply uses:\n\n"
     "{options}\n\n"
-    "Conversation:\n"
-    "User: {context}\n"
-    "Reply: {answer}\n\n"
     "Answer with the letter of the technique only."
 )
 
-IMPLIED_PROMPT = (
-    "Below is a short conversation in which a user asks a question and gets a reply.\n\n"
-    "User: {context}\n"
-    "Reply: {answer}\n\n"
-    "What does the reply communicate to the user about their question? Take into account what the reply "
-    "suggests or implies, not only what it literally says. State the information the user would take away "
-    "in one plain, purely informative sentence. Output only that sentence."
+IMPLIED_SYSTEM_PROMPT = (
+    "You will see short conversations in which a user asks a question and gets a reply. "
+    "State the information the user would take away from the reply about their question. Take into account "
+    "what the reply suggests or implies, not only what it literally says.\n"
+    "Answer with one plain, purely informative sentence that states this information itself. Do not describe "
+    "the reply: do not write things like \"The reply implies that ...\" or \"The reply incorrectly suggests "
+    "that ...\". Output only the statement."
 )
+
+CONVERSATION = "User: {context}\nReply: {answer}"
 
 MATCH_PROMPT = (
     "A user asked the following:\n"
@@ -124,9 +135,10 @@ def choose_batch(model, tokenizer, prompts, option_ids):
     inputs = tokenize_prompts(model, tokenizer, prompts)
     with torch.no_grad():
         try:
-            logits = model(**inputs, logits_to_keep=1).logits  # only the last position is needed
+            # only the last position is needed; no cache, since nothing is generated
+            logits = model(**inputs, use_cache=False, logits_to_keep=1).logits
         except TypeError:  # older transformers versions
-            logits = model(**inputs).logits
+            logits = model(**inputs, use_cache=False).logits
     # left padding: the last position is the last prompt token for every row
     return logits[:, -1, option_ids].argmax(dim=-1).tolist()
 
@@ -140,21 +152,62 @@ def chat(tokenizer, content):
     return format_chat(tokenizer, [{"role": "user", "content": content}])
 
 
+def few_shot_chat(tokenizer, system_prompt, shots, row):
+    """Chat with the system prompt, (conversation, answer) example turns and the row's conversation last."""
+    messages = [{"role": "system", "content": system_prompt}]
+    for conversation, answer in shots:
+        messages.append({"role": "user", "content": conversation})
+        messages.append({"role": "assistant", "content": answer})
+    messages.append({"role": "user", "content": conversation_of(row)})
+    return format_chat(tokenizer, messages)
+
+
+def conversation_of(row):
+    return CONVERSATION.format(context=row["context_with_question"], answer=row["misleading_non-false_answer"])
+
+
+def classify_shots(row, examples, options):
+    """2 manual examples per deception type, from other topics, labelled with their letter in `options`."""
+    rng = random.Random(SEED + int(row["id"]))
+    pool = examples[examples["topic"] != row["topic"]]
+    letters = dict(zip(options, OPTION_LABELS))
+    shots = []
+    for deception_type in DECEPTION_TYPES:
+        candidates = pool[pool["deception_type"] == deception_type]
+        for i in rng.sample(list(candidates.index), N_CLASSIFY_EXAMPLES_PER_TYPE):
+            shots.append((conversation_of(examples.loc[i]), letters[deception_type]))
+    rng.shuffle(shots)
+    return shots
+
+
+def implied_shots(row, examples):
+    """5 manual examples from 5 other topics, each with a different deception type; the answer is the false statement."""
+    rng = random.Random(SEED + int(row["id"]))
+    other_topics = sorted(set(examples["topic"]) - {row["topic"]})
+    topics = rng.sample(other_topics, min(N_IMPLIED_EXAMPLES, len(other_topics)))
+    deception_types = rng.sample(DECEPTION_TYPES, len(topics))
+    shots = []
+    for topic, deception_type in zip(topics, deception_types):
+        candidates = examples[(examples["topic"] == topic) & (examples["deception_type"] == deception_type)]
+        example = examples.loc[rng.choice(list(candidates.index))]
+        shots.append((conversation_of(example), example["false_answer"]))
+    return shots
+
+
 def load_validation_df():
-    if VALIDATED_PATH.exists():
-        print(f"Resuming from {VALIDATED_PATH}")
-        df = read_dataset(VALIDATED_PATH)
-    else:
-        df = read_dataset(FULL_DATASET_PATH)
-        for col in NEW_COLUMNS:
-            df[col] = None
+    df = read_dataset(FULL_DATASET_PATH)
     for col in NEW_COLUMNS:
-        df[col] = df[col].astype(object)
+        df[col] = pd.Series(None, index=df.index, dtype=object)
     return df
 
 
 def validate(df, batch_size):
     has_misleading = df["misleading_non-false_answer"].notna()
+    examples = df[
+        df["manual_or_generated"].isin(MANUAL_LABELS)
+        & has_misleading
+        & df["false_answer"].notna()
+    ]
     model, tokenizer = load_model(VALIDATOR_MODEL)
 
     def save_results(column, convert=lambda i, out: out):
@@ -164,20 +217,18 @@ def validate(df, batch_size):
         return on_batch
 
     # 1. deception type
-    todo = df.index[has_misleading & df["inferred_deception_type"].isna()]
+    todo = df.index[has_misleading]
     letter_ids = option_token_ids(tokenizer, OPTION_LABELS)
     prompts = []
     for i in todo:
-        options = "\n".join(
-            f"{label}) {DECEPTION_NAMES[t]}: {DEFINITIONS[t]}"
-            for label, t in zip(OPTION_LABELS, deception_options(df.at[i, "id"]))
+        row = df.loc[i]
+        options = deception_options(row["id"])
+        options_text = "\n".join(
+            f"{label}) {DECEPTION_NAMES[t]}: {DEFINITIONS[t]}" for label, t in zip(OPTION_LABELS, options)
         )
-        content = CLASSIFY_PROMPT.format(
-            options=options,
-            context=df.at[i, "context_with_question"],
-            answer=df.at[i, "misleading_non-false_answer"],
-        )
-        prompts.append((i, chat(tokenizer, content)))
+        system_prompt = CLASSIFY_SYSTEM_PROMPT.format(options=options_text)
+        shots = classify_shots(row, examples, options)
+        prompts.append((i, few_shot_chat(tokenizer, system_prompt, shots, row)))
     run_in_batches(
         prompts,
         batch_size,
@@ -187,12 +238,9 @@ def validate(df, batch_size):
     )
 
     # 2. implied statement
-    todo = df.index[has_misleading & df["inferred_implied_statement"].isna()]
+    todo = df.index[has_misleading]
     prompts = [
-        (i, chat(tokenizer, IMPLIED_PROMPT.format(
-            context=df.at[i, "context_with_question"],
-            answer=df.at[i, "misleading_non-false_answer"],
-        )))
+        (i, few_shot_chat(tokenizer, IMPLIED_SYSTEM_PROMPT, implied_shots(df.loc[i], examples), df.loc[i]))
         for i in todo
     ]
     run_generation(
@@ -201,11 +249,7 @@ def validate(df, batch_size):
     )
 
     # 3. match between implied statement and the generated false answer
-    todo = df.index[
-        df["inferred_implied_statement"].notna()
-        & df["false_answer"].notna()
-        & df["match"].isna()
-    ]
+    todo = df.index[df["inferred_implied_statement"].notna() & df["false_answer"].notna()]
     yes_no_ids = option_token_ids(tokenizer, ["Yes", "No"])
     prompts = [
         (i, chat(tokenizer, MATCH_PROMPT.format(
