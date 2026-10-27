@@ -15,4 +15,4 @@
 module load python
 source .venv/bin/activate
 nvidia-smi
-python 02_context_generation_task.py
+python 02_context_generation.py
