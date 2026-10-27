@@ -1,11 +1,18 @@
-from pathlib import Path
+"""Step 1 of the dataset construction: sample true statements from the original datasets.
+
+Writes full_dataset_sampled.csv and, if it does not exist yet, manual_entries_sampled.xlsx with the
+rows that are completed by hand (save the completed version as manual_entries_completed.xlsx).
+
+Usage:
+    python 01_dataset_sampling.py
+"""
+
 import numpy as np
 import pandas as pd
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ORIG_DATASETS_DIR = SCRIPT_DIR / "dataset" / "original_datasets"
+from llm_utils import DATASETS_DIR, MANUAL_SAMPLED_PATH, ORIG_DATASETS_DIR, SAMPLED_PATH, SEED
 
-SEED = 67
+SAMPLES_PER_FILE = 198
 
 TOPICS = [
     "cities",
@@ -35,6 +42,19 @@ DECEPTION_TYPES = [
     "augmentation",
 ]
 
+COLUMNS = [
+    "context_with_question",
+    "true_non-misleading_answer",
+    "false_answer",
+    "misleading_non-false_answer",
+    "unrelated_or_nonsense",
+    "topic",
+    "statement_type",
+    "manual_or_generated",
+    "deception_type",
+    "original_true_statement",
+]
+
 
 def topic_and_statement_type(csv_name):
     topic = None
@@ -55,81 +75,54 @@ def topic_and_statement_type(csv_name):
     return topic, statement_type
 
 
-def main():
-    sampled_df = pd.DataFrame(
-        columns=[
-            "context_with_question",
-            "true_non-misleading_answer",
-            "false_answer",
-            "misleading_non-false_answer",
-            "unrelated_or_nonsense",
-            "topic",
-            "statement_type",
-            "manual_or_generated",
-            "deception_type",
-        ]
-    )
-
-    rows_to_append = []
-
-    # Filter files ending with '.csv'
-    csv_files = list(ORIG_DATASETS_DIR.glob("*.csv"))
-
-    for csv_path in csv_files:
-        csv_name = csv_path.name
-
-        # Filter statement and label columns and true rows
+def sample_dataset():
+    rows = []
+    for csv_path in ORIG_DATASETS_DIR.glob("*.csv"):
+        # Keep only the true statements
         df = pd.read_csv(csv_path)[["statement", "label"]]
-        df["label"] = df["label"].astype(int)
-        df = df[df["label"]==1]
+        df = df[df["label"].astype(int) == 1]
 
-        topic, statement_type = topic_and_statement_type(csv_name)
+        topic, statement_type = topic_and_statement_type(csv_path.name)
 
-        # Ensure we do not request more samples than available in small datasets
-        sample_size = min(198,len(df.index))
-        sampled_rows = df.sample(n=sample_size, random_state=SEED).reset_index(
-            drop=True
-        )
+        # Do not request more samples than available in small datasets
+        sample_size = min(SAMPLES_PER_FILE, len(df.index))
+        sampled_rows = df.sample(n=sample_size, random_state=SEED).reset_index(drop=True)
 
-        # Distribute rows evenly across the 10 deception types, for each deception type, one row will be assigned to "manual" and the rest to "generated"
-        deception_assignments_generated = ([(t, "generated") for t in DECEPTION_TYPES] * (sample_size // len(DECEPTION_TYPES)))
+        # Distribute the rows evenly across the 10 deception types; per deception type, one row
+        # is assigned to "manual" and the rest to "generated"
+        deception_assignments_generated = [(t, "generated") for t in DECEPTION_TYPES] * (sample_size // len(DECEPTION_TYPES))
         deception_assignments_manual = [(t, "manual") for t in DECEPTION_TYPES]
         np.random.seed(SEED)
         np.random.shuffle(deception_assignments_generated)
-        deception_assignments = deception_assignments_manual + deception_assignments_generated
-        deception_assignments = deception_assignments[:sample_size]
+        deception_assignments = (deception_assignments_manual + deception_assignments_generated)[:sample_size]
 
-        # Construct new DataFrame records
         for idx, row in sampled_rows.iterrows():
-            new_row = {
-                "manual_or_generated": deception_assignments[idx][1],
-                "context_with_question": None,
-                "true_non-misleading_answer": None,
-                "false_answer": None,
-                "misleading_non-false_answer": None,
-                "unrelated_or_nonsense": None,
+            deception_type, manual_or_generated = deception_assignments[idx]
+            rows.append({
                 "topic": topic,
                 "statement_type": statement_type,
-                "deception_type": deception_assignments[idx][0],
-                "original_true_statement" : (
-                    row["statement"]
-                )
-            }
-            rows_to_append.append(new_row)
+                "manual_or_generated": manual_or_generated,
+                "deception_type": deception_type,
+                "original_true_statement": row["statement"],
+            })
 
-    sampled_df = pd.concat(
-        [sampled_df, pd.DataFrame(rows_to_append)], ignore_index=True
-    )
+    sampled_df = pd.DataFrame(rows, columns=COLUMNS)  # the answer columns stay empty
     sampled_df["id"] = sampled_df.index + 1
     return sampled_df
 
 
-if __name__ == "__main__":
-    df = main()
-    df.to_csv("dataset/sampled_dataset_with_types.csv", index=False)
-    if "manual_entries_sampled.xlsx" not in [f.name for f in Path("dataset").glob("*.xlsx")]:
-        df_manual = df[df["manual_or_generated"] == "manual"]
-        df_manual.to_excel("dataset/manual_entries_sampled.xlsx", index=False)
+def main():
+    df = sample_dataset()
+    DATASETS_DIR.mkdir(parents=True, exist_ok=True)
+    df.to_csv(SAMPLED_PATH, index=False)
+    # Never overwrite the sheet for the manual entries, it may already be being filled in
+    if not MANUAL_SAMPLED_PATH.exists():
+        df[df["manual_or_generated"] == "manual"].to_excel(MANUAL_SAMPLED_PATH, index=False)
+
     print(f"Total sampled rows: {len(df)}")
     print(df.groupby(["statement_type", "topic"]).size())
-    print(df.groupby(["deception_type","manual_or_generated"]).size())
+    print(df.groupby(["deception_type", "manual_or_generated"]).size())
+
+
+if __name__ == "__main__":
+    main()
