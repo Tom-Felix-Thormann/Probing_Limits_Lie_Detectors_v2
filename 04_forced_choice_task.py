@@ -17,12 +17,16 @@ One-sided McNemar tests per model:
     mislead_vs_unfitting    the misleading option is chosen in MISLEAD more often than the unrelated
                             option in MISLEAD_UNFITTING
 
-Results: results/forced_choice/{responses,counts,tests}.csv
+Results: results/forced_choice/per_model/<model>/{responses,counts,tests}.csv per model,
+         merged into results/forced_choice/{responses,counts,tests}.csv
 
 Usage:
-    python 04_forced_choice_task.py
+    python 04_forced_choice_task.py                 # all models one after another, then merge
+    python 04_forced_choice_task.py --model NAME    # one model only (parallel cluster jobs)
+    python 04_forced_choice_task.py --combine       # only merge the per-model results
 """
 
+import argparse
 import random
 import re
 
@@ -32,6 +36,7 @@ import torch
 from llm_utils import MANUAL_PATH, MODELS, RESULTS_DIR, SEED, format_chat, load_model, mcnemar_greater, run_generation
 
 OUT_DIR = RESULTS_DIR / "forced_choice"
+PER_MODEL_DIR = OUT_DIR / "per_model"  # written by --model, merged by --combine
 BATCH_SIZE = 16
 MAX_NEW_TOKENS = 150  # manual answers are at most ~260 characters
 
@@ -136,43 +141,76 @@ def mcnemar_tests(responses):
     return pd.DataFrame(rows)
 
 
-def main():
-    torch.manual_seed(SEED)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    manual = pd.read_excel(MANUAL_PATH)
-    items = build_items(manual)
-
+def run_model(model_name, items):
+    """All conditions for one model; returns one row per item and condition."""
+    model, tokenizer = load_model(model_name)
     results = []
-    for model_name in MODELS:
-        model, tokenizer = load_model(model_name)
-        for condition in CONDITIONS:
-            prompts = [format_chat(tokenizer, build_messages(item, condition)) for item in items]
-            replies = run_generation(
-                model, tokenizer, prompts, MAX_NEW_TOKENS, BATCH_SIZE, desc=f"{model_name} {condition}", greedy=True
-            )
-            for item, reply in zip(items, replies):
-                row = item["row"]
-                results.append({
-                    "model": model_name,
-                    "id": row["id"],
-                    "topic": row["topic"],
-                    "statement_type": row["statement_type"],
-                    "deception_type": row["deception_type"],
-                    "condition": condition,
-                    "reply": reply,
-                    "choice": classify(reply, row, condition),
-                })
-        del model
-        torch.cuda.empty_cache()
-        pd.DataFrame(results).to_csv(OUT_DIR / "responses.csv", index=False)  # keeps finished models if a later one fails
+    for condition in CONDITIONS:
+        prompts = [format_chat(tokenizer, build_messages(item, condition)) for item in items]
+        replies = run_generation(
+            model, tokenizer, prompts, MAX_NEW_TOKENS, BATCH_SIZE, desc=f"{model_name} {condition}", greedy=True
+        )
+        for item, reply in zip(items, replies):
+            row = item["row"]
+            results.append({
+                "model": model_name,
+                "id": row["id"],
+                "topic": row["topic"],
+                "statement_type": row["statement_type"],
+                "deception_type": row["deception_type"],
+                "condition": condition,
+                "reply": reply,
+                "choice": classify(reply, row, condition),
+            })
+    del model
+    torch.cuda.empty_cache()
+    return pd.DataFrame(results)
 
-    responses = pd.DataFrame(results)
+
+def save_results(responses, out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    responses.to_csv(out_dir / "responses.csv", index=False)
     counts = pd.crosstab([responses["model"], responses["condition"]], responses["choice"])
-    counts.to_csv(OUT_DIR / "counts.csv")
+    counts.to_csv(out_dir / "counts.csv")
     tests = mcnemar_tests(responses)
-    tests.to_csv(OUT_DIR / "tests.csv", index=False)
+    tests.to_csv(out_dir / "tests.csv", index=False)
     print(counts.to_string())
     print(tests.to_string(index=False))
+
+
+def combine():
+    """Merge the per-model responses into the result files in OUT_DIR (models without results are skipped)."""
+    parts = []
+    for model_name in MODELS:
+        path = PER_MODEL_DIR / model_name / "responses.csv"
+        if path.exists():
+            parts.append(pd.read_csv(path, keep_default_na=False))  # keeps empty replies as ""
+        else:
+            print(f"Warning: no results for {model_name} ({path} is missing)", flush=True)
+    if not parts:
+        raise FileNotFoundError(f"No per-model results in {PER_MODEL_DIR}")
+    save_results(pd.concat(parts, ignore_index=True), OUT_DIR)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Step 4: forced choice task.")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--model", choices=MODELS, help="run only this model (results in results/forced_choice/per_model/)")
+    group.add_argument("--combine", action="store_true", help="only merge the per-model results")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if not args.combine:
+        torch.manual_seed(SEED)
+        items = build_items(pd.read_excel(MANUAL_PATH))
+        models = [args.model] if args.model else MODELS
+        for model_name in models:
+            # saved per model: finished models are kept if a later one fails
+            save_results(run_model(model_name, items), PER_MODEL_DIR / model_name)
+    if args.model is None:
+        combine()
 
 
 if __name__ == "__main__":

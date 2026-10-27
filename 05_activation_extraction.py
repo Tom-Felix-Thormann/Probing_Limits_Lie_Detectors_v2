@@ -21,8 +21,12 @@ Results: activations/statements.csv, activations/<model>.npz (raw, context, laye
          results/layer_selection/<model>.csv
 
 Usage:
-    python 05_activation_extraction.py
+    python 05_activation_extraction.py                # all models one after another
+    python 05_activation_extraction.py --model NAME   # one model only (parallel cluster jobs)
 """
+
+import argparse
+import os
 
 import numpy as np
 import pandas as pd
@@ -93,7 +97,10 @@ def context_text(tokenizer, context, statement):
     """The chat-formatted dialogue, cut off after the statement, so that its last token is the statement's last token."""
     messages = [{"role": "user", "content": context}, {"role": "assistant", "content": statement}]
     text = format_chat(tokenizer, messages, add_generation_prompt=False)
-    return text[: text.rfind(statement) + len(statement)]
+    start = text.rfind(statement)
+    if start < 0:  # e.g. a chat template that changes the message; would otherwise cut the text silently at a wrong place
+        raise ValueError(f"Statement not found in the chat-formatted text: {statement!r}")
+    return text[: start + len(statement)]
 
 
 def last_token_acts(model, tokenizer, texts, add_special_tokens, layer, desc):
@@ -151,16 +158,35 @@ def select_layer(model, tokenizer, statements, model_name):
     return layer
 
 
+def save_statements(statements, tag):
+    """Write statements.csv via a temporary file and an atomic rename.
+
+    Parallel jobs (--model) all write the same content; the rename ensures that no job ever reads a
+    half-written file.
+    """
+    tmp = STATEMENTS_PATH.with_name(f"{STATEMENTS_PATH.stem}.{tag}.tmp")
+    statements.to_csv(tmp, index=False)
+    os.replace(tmp, STATEMENTS_PATH)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Step 5: activation extraction.")
+    parser.add_argument("--model", choices=MODELS, help="extract the activations of this model only (default: all)")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     torch.manual_seed(SEED)
     ACTIVATIONS_DIR.mkdir(parents=True, exist_ok=True)
     LAYER_SELECTION_DIR.mkdir(parents=True, exist_ok=True)
 
     statements = build_statements(pd.read_csv(FULL_DATASET_PATH))
-    statements.to_csv(STATEMENTS_PATH, index=False)
+    save_statements(statements, args.model or "all")
     print(statements.groupby(["source", "kind"]).size().to_string(), flush=True)
 
-    for model_name in MODELS:
+    models = [args.model] if args.model else MODELS
+    for model_name in models:
         model, tokenizer = load_model(model_name)
         layer = select_layer(model, tokenizer, statements, model_name)
 
