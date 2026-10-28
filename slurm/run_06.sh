@@ -4,11 +4,11 @@
 #SBATCH --output=logs/06_%j.out
 #SBATCH --error=logs/06_%j.err
 #SBATCH -N 1
-#SBATCH --partition=fat_gpu_filler
-#SBATCH --gpus=1
-#SBATCH --cpus-per-gpu=12
-#SBATCH --mem=64G
-#SBATCH --time=03:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --partition=cpu
+#SBATCH --mem=8G
+#SBATCH --time=12:00:00
 
 # Merges the per-model results of step 04, then runs step 06 (probes) for the four probed models
 # (PROBE_MODELS in llm_utils.py: all but the two 7B models).
