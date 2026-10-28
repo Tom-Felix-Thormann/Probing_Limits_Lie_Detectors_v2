@@ -1,0 +1,4 @@
+model,condition,false,invalid,misleading,none,true,unrelated
+llama-3.1-70B-instruct,lie,316,1,6,0,37,0
+llama-3.1-70B-instruct,mislead,2,6,301,0,51,0
+llama-3.1-70B-instruct,mislead_unfitting,9,0,0,4,91,256

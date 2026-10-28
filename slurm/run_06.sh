@@ -6,7 +6,7 @@
 #SBATCH -N 1
 #SBATCH --partition=fat_gpu_filler
 #SBATCH --gpus=1
-#SBATCH --cpus-per-gpu=16
+#SBATCH --cpus-per-gpu=12
 #SBATCH --mem=64G
 #SBATCH --time=03:00:00
 

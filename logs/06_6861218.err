@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/home/bergetl3/Probing_Limits_Lie_Detectors_v2/06_probe_training_and_testing.py", line 30, in <module>
+    from sklearn.linear_model import LogisticRegression
+ModuleNotFoundError: No module named 'sklearn'

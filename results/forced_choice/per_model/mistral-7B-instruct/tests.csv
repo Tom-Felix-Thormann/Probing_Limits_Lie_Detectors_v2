@@ -1,0 +1,3 @@
+model,test,rate_x,rate_y,b,c,p
+mistral-7B-instruct,mislead_vs_lie,0.04722222222222222,0.03333333333333333,6,1,0.0625
+mistral-7B-instruct,mislead_vs_unfitting,0.04722222222222222,0.0,17,0,7.62939453125e-06

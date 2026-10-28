@@ -1,0 +1,4 @@
+model,condition,false,invalid,misleading,none,true,unrelated
+qwen-2.5-7B-instruct,lie,146,5,16,1,192,0
+qwen-2.5-7B-instruct,mislead,47,2,53,0,258,0
+qwen-2.5-7B-instruct,mislead_unfitting,52,1,0,0,305,2

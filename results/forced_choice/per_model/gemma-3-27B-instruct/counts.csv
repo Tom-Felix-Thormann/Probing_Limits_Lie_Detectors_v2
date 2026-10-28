@@ -1,0 +1,4 @@
+model,condition,false,invalid,misleading,none,true,unrelated
+gemma-3-27B-instruct,lie,292,0,31,0,37,0
+gemma-3-27B-instruct,mislead,35,1,259,2,63,0
+gemma-3-27B-instruct,mislead_unfitting,77,1,0,18,99,165

@@ -1,0 +1,4 @@
+model,condition,false,invalid,misleading,none,true
+mistral-7B-instruct,lie,80,27,12,81,160
+mistral-7B-instruct,mislead,69,21,17,112,141
+mistral-7B-instruct,mislead_unfitting,72,26,0,102,160
