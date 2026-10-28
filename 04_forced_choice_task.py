@@ -30,10 +30,22 @@ import argparse
 import random
 import re
 
+import numpy as np
 import pandas as pd
 import torch
 
-from llm_utils import MANUAL_PATH, MODELS, RESULTS_DIR, SEED, format_chat, load_model, mcnemar_greater, run_generation
+from llm_utils import (
+    MANUAL_PATH,
+    MODELS,
+    RESULTS_DIR,
+    SEED,
+    format_chat,
+    holm,
+    load_model,
+    mcnemar_greater,
+    run_generation,
+    wilson_ci,
+)
 
 OUT_DIR = RESULTS_DIR / "forced_choice"
 PER_MODEL_DIR = OUT_DIR / "per_model"  # written by --model, merged by --combine
@@ -128,6 +140,14 @@ def classify(reply, row, condition):
 
 
 def mcnemar_tests(responses):
+    """One-sided McNemar tests per model, with 95% CIs and Holm-adjusted p-values.
+
+    rate_x / rate_y   with Wilson CIs (rate_*_low, rate_*_high)
+    diff              rate_x - rate_y = (b - c) / n, with a Wald CI for paired proportions (diff_low, diff_high)
+    p_holm            Holm-adjusted over all tests in `responses` (in the merged tests.csv: all models;
+                      in a per-model tests.csv: only the tests of that model)
+    """
+    z = 1.959964  # 97.5% quantile of the standard normal distribution
     rows = []
     for model_name, group in responses.groupby("model", sort=False):
         choice = group.pivot(index="id", columns="condition", values="choice")
@@ -136,9 +156,32 @@ def mcnemar_tests(responses):
             "mislead_vs_unfitting": (choice["mislead"] == "misleading", choice["mislead_unfitting"] == "unrelated"),
         }
         for test, (x, y) in comparisons.items():
+            n = len(x)
             b, c, p = mcnemar_greater(x, y)
-            rows.append({"model": model_name, "test": test, "rate_x": x.mean(), "rate_y": y.mean(), "b": b, "c": c, "p": p})
-    return pd.DataFrame(rows)
+            x_low, x_high = wilson_ci(x)
+            y_low, y_high = wilson_ci(y)
+            diff = (b - c) / n
+            diff_se = np.sqrt(b + c - (b - c) ** 2 / n) / n
+            rows.append({
+                "model": model_name,
+                "test": test,
+                "n": n,
+                "rate_x": x.mean(),
+                "rate_x_low": x_low,
+                "rate_x_high": x_high,
+                "rate_y": y.mean(),
+                "rate_y_low": y_low,
+                "rate_y_high": y_high,
+                "diff": diff,
+                "diff_low": diff - z * diff_se,
+                "diff_high": diff + z * diff_se,
+                "b": b,
+                "c": c,
+                "p": p,
+            })
+    tests = pd.DataFrame(rows)
+    tests["p_holm"] = holm(tests["p"])
+    return tests
 
 
 def run_model(model_name, items):

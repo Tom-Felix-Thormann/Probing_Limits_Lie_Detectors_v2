@@ -10,10 +10,11 @@
 #SBATCH --mem=64G
 #SBATCH --time=03:00:00
 
-# Merges the per-model results of step 04, then runs step 06 (probes) for all models.
-# Assumes that all tasks of run_04_05.sh have finished successfully.
+# Merges the per-model results of step 04, then runs step 06 (probes) for the four probed models
+# (PROBE_MODELS in llm_utils.py: all but the two 7B models).
+# Assumes that all tasks of run_04.sh and run_05.sh have finished successfully.
 # Submit with: sbatch run_06.sh
-# or right away, waiting for the array job: sbatch --dependency=afterok:<array job id> run_06.sh
+# or right away, waiting for both array jobs: sbatch --dependency=afterok:<04 job id>:<05 job id> run_06.sh
 # Step 06 runs on the CPU (scikit-learn); the GPU is only requested for the partition.
 
 module load python

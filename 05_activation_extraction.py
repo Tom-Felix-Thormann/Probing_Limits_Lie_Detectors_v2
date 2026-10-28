@@ -1,4 +1,4 @@
-"""Step 5: extract the activations of all statements for all models.
+"""Step 5: extract the activations of all statements for the models in PROBE_MODELS (all but the two 7B models).
 
 Statements (one row each in activations/statements.csv):
     generated rows   true  = original_true_statement (label 1), false = false_answer (label 0)
@@ -21,7 +21,7 @@ Results: activations/statements.csv, activations/<model>.npz (raw, context, laye
          results/layer_selection/<model>.csv
 
 Usage:
-    python 05_activation_extraction.py                # all models one after another
+    python 05_activation_extraction.py                # all models in PROBE_MODELS one after another
     python 05_activation_extraction.py --model NAME   # one model only (parallel cluster jobs)
 """
 
@@ -35,7 +35,7 @@ import torch
 from llm_utils import (
     ACTIVATIONS_DIR,
     FULL_DATASET_PATH,
-    MODELS,
+    PROBE_MODELS,
     RESULTS_DIR,
     SEED,
     STATEMENTS_PATH,
@@ -171,7 +171,7 @@ def save_statements(statements, tag):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Step 5: activation extraction.")
-    parser.add_argument("--model", choices=MODELS, help="extract the activations of this model only (default: all)")
+    parser.add_argument("--model", choices=PROBE_MODELS, help="extract the activations of this model only (default: all)")
     return parser.parse_args()
 
 
@@ -185,7 +185,7 @@ def main():
     save_statements(statements, args.model or "all")
     print(statements.groupby(["source", "kind"]).size().to_string(), flush=True)
 
-    models = [args.model] if args.model else MODELS
+    models = [args.model] if args.model else PROBE_MODELS
     for model_name in models:
         model, tokenizer = load_model(model_name)
         layer = select_layer(model, tokenizer, statements, model_name)

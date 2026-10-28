@@ -1,4 +1,5 @@
-"""Step 6: train logistic regression probes on the activations from step 5 and evaluate them.
+"""Step 6: train logistic regression probes on the activations from step 5 and evaluate them,
+for the models in PROBE_MODELS (all but the two 7B models).
 
 Training conditions (training pool):
     raw                           raw true and false statements of the generated rows
@@ -29,7 +30,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
-from llm_utils import ACTIVATIONS_DIR, MODELS, RESULTS_DIR, STATEMENTS_PATH, mcnemar_greater
+from llm_utils import ACTIVATIONS_DIR, PROBE_MODELS, RESULTS_DIR, STATEMENTS_PATH, mcnemar_greater
 
 OUT_DIR = RESULTS_DIR / "probes"
 TRAIN_STATEMENT_TYPES = ["affirmative", "neg"]
@@ -99,7 +100,7 @@ def main():
     statements = pd.read_csv(STATEMENTS_PATH)
 
     results = {"unseen_topic": [], "unseen_statement_type": [], "misleading": []}
-    for model_name in MODELS:
+    for model_name in PROBE_MODELS:
         acts = np.load(ACTIVATIONS_DIR / f"{model_name}.npz")
         for name, rows in zip(results, evaluate(model_name, acts, statements)):
             results[name] += rows

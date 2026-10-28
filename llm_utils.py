@@ -30,6 +30,9 @@ MODELS = [  # the models that are tested (04-06)
     "qwen-2.5-72B-instruct",
     "qwen-2.5-7B-instruct",
 ]
+# the models whose activations are extracted and probed (05-06): without the two 7B models, which do
+# not select the misleading answer reliably in the forced choice task (04)
+PROBE_MODELS = [m for m in MODELS if m not in ("mistral-7B-instruct", "qwen-2.5-7B-instruct")]
 
 SEED = 67
 TEMPERATURE = 0.7
@@ -136,3 +139,22 @@ def mcnemar_greater(x, y):
     b, c = int((x & ~y).sum()), int((~x & y).sum())
     p = binomtest(b, b + c, 0.5, alternative="greater").pvalue if b + c > 0 else 1.0
     return b, c, p
+
+
+def wilson_ci(x, confidence_level=0.95):
+    """Wilson confidence interval of the share of True in the binary outcomes x. Returns (low, high)."""
+    x = np.asarray(x, dtype=bool)
+    ci = binomtest(int(x.sum()), len(x)).proportion_ci(confidence_level=confidence_level, method="wilson")
+    return ci.low, ci.high
+
+
+def holm(p_values):
+    """Holm-adjusted p-values (family-wise error rate), in the order of p_values."""
+    p = np.asarray(p_values, dtype=float)
+    m = len(p)
+    order = np.argsort(p)
+    # the i-th smallest p-value (from 0) is multiplied by m - i; the running maximum keeps the order of the adjusted values
+    adjusted_sorted = np.minimum(np.maximum.accumulate((m - np.arange(m)) * p[order]), 1.0)
+    adjusted = np.empty(m)
+    adjusted[order] = adjusted_sorted
+    return adjusted
