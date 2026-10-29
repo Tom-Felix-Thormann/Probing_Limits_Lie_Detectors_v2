@@ -2,3 +2,5 @@ venv/
 .venv/
 model_weights/
 model_weights
+slurm
+slurm/

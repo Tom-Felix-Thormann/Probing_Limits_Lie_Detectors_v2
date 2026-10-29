@@ -10,7 +10,7 @@
 #SBATCH --mem=200G
 #SBATCH --time=03:00:00
 
-# Merge the manual entries, then generate contexts and false answers with llama-3.1-70B.
+# Merge the manual entries, then generate contexts, true answers and false answers with llama-3.1-70B.
 # No resuming: an interrupted job has to be resubmitted and starts from scratch.
 module load python
 source .venv/bin/activate

@@ -1,16 +1,17 @@
-"""Step 2 of the dataset construction: generate contexts and false answers.
+"""Step 2 of the dataset construction: generate contexts, true answers and false answers.
 
 1. Merge manual_entries_completed.xlsx into full_dataset_sampled.csv (matched by id).
 2. Let llama-3.1-70B-instruct write context_with_question for all non-manual rows.
-3. Let the same model write a false_answer for all non-manual rows.
+3. Let the same model write a true answer (true_non-misleading_answer) for all non-manual rows.
+4. Let the same model write a false_answer for all non-manual rows.
+
+The true and false answers are generated the same way (same model, same kind of prompt, few-shot examples
+from the same manual rows), so that true and false statements of the generated rows do not differ in style.
+Otherwise a probe could separate them by their form instead of their truth.
 
 German rows (statement types de and neg_de) get German prompts, all other rows English prompts.
-Both steps use 12 few-shot examples from the manual rows of the same topic and language, split
+All steps use 12 few-shot examples from the manual rows of the same topic and language, split
 evenly over the statement types of that language (3 per English type, 6 per German type).
-Every run starts from scratch and overwrites full_dataset_generated.csv.
-
-Usage:
-    python 02_context_generation_task.py
 """
 
 import random
@@ -34,8 +35,9 @@ N_SHOTS = 12
 
 # Manual contexts are at most ~340 characters (~85 tokens in English, more in German): 1.5x plus margin
 # Manual false answers are at most ~170 characters: roughly 1.5x in tokens, with margin for German
-MAX_NEW_TOKENS = {"context": 160, "false": 80}
-TASK_COLUMNS = {"context": "context_with_question", "false": "false_answer"}
+# Manual answers in general are at most ~260 characters: the true answers get the corresponding margin
+MAX_NEW_TOKENS = {"context": 160, "true": 110, "false": 80}
+TASK_COLUMNS = {"context": "context_with_question", "true": "true_non-misleading_answer", "false": "false_answer"}
 
 STATEMENT_TYPES = {
     "en": ["affirmative", "neg", "conj", "disj"],
@@ -74,6 +76,21 @@ PROMPTS = {
             "- Output only the context with the question. No preamble, no labels, no quotation marks, "
             "no answer."
         ),
+        "true": (
+            "You help build a dataset for studying truthful and misleading answers. "
+            "Each message you receive contains a true statement, given for reference, and a user's question. "
+            "Answer the question with a true answer: it must be factually correct and must not be misleading, "
+            "so that the user ends up with a correct belief.\n"
+            "\n"
+            "Requirements:\n"
+            "- Your answer must convey the content of the true statement, phrased as a natural reply to the "
+            "question. Do not add any further facts.\n"
+            "- If the statement combines two facts ('both ... and ...' or 'either ... or ...'), your answer must "
+            "contain the whole statement, not just one part.\n"
+            "- Do not add notes, hedges or disclaimers.\n"
+            "- Answer in one (or at most two) sentence(s), in English.\n"
+            "- Output only the answer."
+        ),
         "false": (
             "You help build a dataset for studying truthful and misleading answers. "
             "Each message you receive contains a true statement, given for reference, and a user's question. "
@@ -109,6 +126,21 @@ PROMPTS = {
             "- Gib nur den Kontext mit der Frage aus. Keine Einleitung, keine Beschriftungen, "
             "keine Anführungszeichen, keine Antwort."
         ),
+        "true": (
+            "Du hilfst dabei, einen Datensatz zur Untersuchung wahrer und irreführender Antworten zu erstellen. "
+            "Jede Nachricht, die du erhältst, enthält eine wahre Aussage als Referenz und die Frage eines Nutzers. "
+            "Beantworte die Frage mit einer wahren Antwort: Sie muss sachlich richtig sein und darf nicht "
+            "irreführend sein, sodass der Nutzer eine richtige Überzeugung gewinnt.\n"
+            "\n"
+            "Anforderungen:\n"
+            "- Deine Antwort muss den Inhalt der wahren Aussage wiedergeben, formuliert als natürliche Antwort "
+            "auf die Frage. Füge keine weiteren Fakten hinzu.\n"
+            "- Wenn die Aussage zwei Fakten verbindet ('sowohl ... als auch ...' oder 'entweder ... oder ...'), "
+            "muss deine Antwort die ganze Aussage enthalten, nicht nur einen Teil.\n"
+            "- Füge keine Hinweise, Relativierungen oder Einschränkungen hinzu.\n"
+            "- Antworte in einem Satz (höchstens zwei Sätzen), auf Deutsch.\n"
+            "- Gib nur die Antwort aus."
+        ),
         "false": (
             "Du hilfst dabei, einen Datensatz zur Untersuchung wahrer und irreführender Antworten zu erstellen. "
             "Jede Nachricht, die du erhältst, enthält eine wahre Aussage als Referenz und die Frage eines Nutzers. "
@@ -127,8 +159,8 @@ PROMPTS = {
     },
 }
 
-# Labels of the user message in the false answer task
-FALSE_ANSWER_LABELS = {"en": ("True statement", "Question"), "de": ("Wahre Aussage", "Frage")}
+# Labels of the user message in the answer tasks (true and false)
+ANSWER_LABELS = {"en": ("True statement", "Question"), "de": ("Wahre Aussage", "Frage")}
 
 
 def language(statement_type):
@@ -138,7 +170,7 @@ def language(statement_type):
 def user_turn(row, task, lang):
     if task == "context":
         return row["original_true_statement"]
-    statement_label, question_label = FALSE_ANSWER_LABELS[lang]
+    statement_label, question_label = ANSWER_LABELS[lang]  # same user message for the true and the false answer
     return f"{statement_label}: {row['original_true_statement']}\n{question_label}: {row['context_with_question']}"
 
 
@@ -187,19 +219,18 @@ def generate_column(df, rows, examples, task, model, tokenizer):
 def main():
     torch.manual_seed(SEED)
 
-    sampled = pd.read_csv(SAMPLED_PATH)
     manual = pd.read_excel(MANUAL_PATH)
-    df = merge_manual_entries(sampled, manual)
+    df = merge_manual_entries(pd.read_csv(SAMPLED_PATH), manual)
+    tasks = ["context", "true", "false"]  # contexts first: the answer prompts contain the generated context
 
     is_manual = df["id"].isin(manual["id"])
     examples = df[is_manual]
     to_generate = df.index[~is_manual]
-    print(f"Merged {len(manual)} manual rows; generating {len(to_generate)} rows.", flush=True)
+    print(f"{len(manual)} manual rows; generating {', '.join(tasks)} for {len(to_generate)} rows.", flush=True)
 
     model, tokenizer = load_model(GENERATION_MODEL)
-    # Contexts first: the false answer prompt contains the generated context
-    generate_column(df, to_generate, examples, "context", model, tokenizer)
-    generate_column(df, to_generate, examples, "false", model, tokenizer)
+    for task in tasks:
+        generate_column(df, to_generate, examples, task, model, tokenizer)
 
     df.to_csv(FULL_DATASET_PATH, index=False)
     print(f"Saved {len(df)} rows to {FULL_DATASET_PATH}")

@@ -2,7 +2,8 @@
 for the models in PROBE_MODELS (all but the two 7B models).
 
 Training conditions (training pool):
-    raw                           raw true and false statements of the generated rows
+    raw                           raw true and false statements of the generated rows (the true and false answers
+                                  written by llama-3.1-70B in step 02, see 04_activation_extraction.py)
     with_context                  the same statements in the chat-formatted dialogue
     with_context_and_misleading   with_context plus the 180 manual train misleading answers (label false)
 

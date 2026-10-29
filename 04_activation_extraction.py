@@ -1,9 +1,13 @@
 """Step 5: extract the activations of all statements for the models in PROBE_MODELS (all but the two 7B models).
 
 Statements (one row each in activations/statements.csv):
-    generated rows   true  = original_true_statement (label 1), false = false_answer (label 0)
+    generated rows   true  = true_non-misleading_answer (label 1), false = false_answer (label 0),
+                     both written by llama-3.1-70B in step 02 (same prompt type and few-shot examples)
     manual rows      true  = true_non-misleading_answer (label 1), false = false_answer (label 0),
                      misleading = misleading_non-false_answer (label 0)
+In both parts, true and false statements are answers to context_with_question in the same style. The
+original_true_statement is not used here (with it as the true class, true and false generated statements
+differed in style, which a probe can pick up instead of truth).
 The manual rows are split 180 / 180 into train and test, so that every topic, statement type and
 deception type is split evenly (see split_manual_rows).
 
@@ -14,8 +18,9 @@ As in Truth_is_Universal, the activation is the residual stream (output of one d
 last token of the statement, i.e. its final period; chat tokens after the statement are cut off.
 
 The layer is selected per model as in Truth_is_Universal: the layer with the largest separation of true
-and false statements (between-class / within-class variance), averaged over the raw statements of
-cities, neg_cities, sp_en_trans and neg_sp_en_trans (generated rows).
+and false statements (between-class / within-class variance), averaged over the raw true and false answers of
+the generated rows of cities and sp_en_trans, affirmative and negated (the topics and types of cities, neg_cities,
+sp_en_trans and neg_sp_en_trans in Truth_is_Universal).
 
 Results: activations/statements.csv, activations/<model>.npz (raw, context, layer),
          results/layer_selection/<model>.csv
@@ -73,12 +78,15 @@ def build_statements(df):
     """One row per statement, with its label, the context and the metadata of its dataset row."""
     meta = ["id", "topic", "statement_type", "deception_type", "context_with_question"]
     generated = df[df["manual_or_generated"] == "generated"]
+    missing = generated["true_non-misleading_answer"].isna().sum()
+    if missing:  # full_dataset_generated.csv from before the true answers were generated in step 02
+        raise ValueError(f"{missing} generated rows have no true answer; run 02_context_generation.py (--true-only) first")
     manual = df[df["manual_or_generated"] != "generated"].copy()
     manual["split"] = split_manual_rows(manual)
 
     parts = []
     for rows, source, kinds in [
-        (generated, "generated", [("true", "original_true_statement", 1), ("false", "false_answer", 0)]),
+        (generated, "generated", [("true", "true_non-misleading_answer", 1), ("false", "false_answer", 0)]),
         (manual, "manual", [
             ("true", "true_non-misleading_answer", 1),
             ("false", "false_answer", 0),
