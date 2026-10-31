@@ -28,7 +28,7 @@ submit() {
         options+=(--dependency="$2" --kill-on-invalid-dep=yes)
     fi
     local id
-    id=$(sbatch "${options[@]}" "$SLURM_DIR/$1")
+    id=$(sbatch "${options[@]}" "$SLURM_DIR/$1") || exit 1
     echo "${id%%;*}"  # --parsable prints "id" or "id;cluster"
 }
 

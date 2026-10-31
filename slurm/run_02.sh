@@ -4,7 +4,7 @@
 #SBATCH --output=logs/dataset_gen_%j.out
 #SBATCH --error=logs/dataset_gen_%j.err
 #SBATCH -N 1
-#SBATCH --partition=fat_gpu_filler
+#SBATCH --partition=fat_gpu_h200_filler
 #SBATCH --gpus=4
 #SBATCH --cpus-per-gpu=8
 #SBATCH --mem=200G
