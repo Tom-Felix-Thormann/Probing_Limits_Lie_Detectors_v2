@@ -1,19 +1,26 @@
 """Step 6: train logistic regression probes on the activations from step 5 and evaluate them,
 for the models in PROBE_MODELS (all but the two 7B models).
 
+Deception type split:
+    Every topic x statement type dataset contains exactly one manual entry per deception type, so this
+    splits the 360 manual entries into 180 training and 180 test entries, balanced over topics and
+    statement types. The stratified train/test column "split" of the statements file is not used.
+
 Training conditions (training pool):
     raw                           raw true and false statements of the generated rows (the true and false answers
                                   written by llama-3.1-70B in step 02, see 04_activation_extraction.py)
     with_context                  the same statements in the chat-formatted dialogue
-    with_context_and_misleading   with_context plus the 180 manual train misleading answers (label false)
+    with_context_and_misleading   with_context plus the 180 misleading answers of the manual entries of the
+                                  five training deception types (label false)
 
 Evaluations, each a single run on the full data:
     unseen_topic             train on all statements of five topics, test on the true and false statements
                              (generated rows) of the sixth topic
     unseen_statement_type    train on affirmative and negated statements, test on the true and false statements
                              (generated rows) of the other statement types
-    misleading               train on the full pool, test on the 180 manual test rows: share of true, false
-                             and misleading answers classified as false, and a one-sided McNemar test of
+    misleading               train on the full pool, test on the 180 manual entries of the five test deception
+                             types (the same entries in all conditions): share of true, false and misleading
+                             answers classified as false, and a one-sided McNemar test of
                              P(detected | false answer) > P(detected | misleading answer)
 Misleading training examples only enter the training sets whose topics / statement types they belong to.
 The manual test rows are passed in the format of the condition (raw or with context).
@@ -49,10 +56,21 @@ def fit_probe(acts, labels):
     return LogisticRegression(C=np.inf, fit_intercept=True, max_iter=1000).fit(acts, labels)
 
 
-def evaluate(model_name, acts, statements):
+def deception_types(statements):
+    """Deception type of every row: that of its manual entry (via the misleading answer), NaN for generated rows."""
+    is_manual = statements["source"] == "manual"
+    misleading = statements[is_manual & (statements["kind"] == "misleading")]
+    type_by_id = misleading.set_index("id")["deception_type"]
+    return statements["id"].map(type_by_id).where(is_manual).to_numpy()
+
+
+def evaluate(model_name, acts, statements, deception_type, train_types, test_types):
     is_generated = (statements["source"] == "generated").to_numpy()
-    is_manual_test = ((statements["source"] == "manual") & (statements["split"] == "test")).to_numpy()
-    is_misleading_train = ((statements["kind"] == "misleading") & (statements["split"] == "train")).to_numpy()
+    is_manual = (statements["source"] == "manual").to_numpy()
+    is_manual_test = is_manual & np.isin(deception_type, test_types)
+    is_misleading_train = (
+        is_manual & (statements["kind"] == "misleading").to_numpy() & np.isin(deception_type, train_types)
+    )
     topic = statements["topic"].to_numpy()
     statement_type = statements["statement_type"].to_numpy()
     labels = statements["label"].to_numpy()
@@ -90,6 +108,8 @@ def evaluate(model_name, acts, statements):
         b, c, p = mcnemar_greater(detected["false"], detected["misleading"])
         misleading_rows.append({
             **base,
+            "train_deception_types": "; ".join(train_types),
+            "test_deception_types": "; ".join(test_types),
             "n_test": len(detected),
             "rate_true": detected["true"].mean(),  # false positives
             "rate_false": detected["false"].mean(),
@@ -106,12 +126,17 @@ def evaluate(model_name, acts, statements):
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     statements = pd.read_csv(STATEMENTS_PATH)
+    deception_type = deception_types(statements)
+    train_types = ['abstraction', 'augmentation', 'contr_distraction', 'equivocation', 'obfuscation']
+    test_types = ['FI_quantity', 'FI_relevance', 'half_truth', 'overstatement', 'understatement']
+    print(f"training deception types: {train_types}\ntest deception types: {test_types}\n", flush=True)
 
     results = {"unseen_topic": [], "unseen_statement_type": [], "misleading": []}
     for model_name in PROBE_MODELS:
         acts = np.load(ACTIVATIONS_DIR / f"{model_name}.npz")
-        for name, rows in zip(results, evaluate(model_name, acts, statements)):
-            results[name] += rows
+        rows = evaluate(model_name, acts, statements, deception_type, train_types, test_types)
+        for name, new_rows in zip(results, rows):
+            results[name] += new_rows
 
     for name, rows in results.items():
         df = pd.DataFrame(rows)

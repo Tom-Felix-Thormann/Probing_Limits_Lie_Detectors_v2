@@ -1,13 +1,13 @@
-model,condition,n_test,rate_true,rate_false,rate_misleading,b,c,p
-gemma-3-27B-instruct,raw,180,0.011111111111111112,0.95,0.5555555555555556,76,5,1.1321611945026552e-17
-gemma-3-27B-instruct,with_context,180,0.016666666666666666,0.9555555555555556,0.2833333333333333,122,1,1.1660903960157092e-35
-gemma-3-27B-instruct,with_context_and_misleading,180,0.03333333333333333,0.9611111111111111,0.9055555555555556,16,6,0.026239395141601562
-llama-3.1-70B-instruct,raw,180,0.005555555555555556,0.9444444444444444,0.2388888888888889,128,1,1.910178320086217e-37
-llama-3.1-70B-instruct,with_context,180,0.016666666666666666,0.9666666666666667,0.23333333333333334,133,1,6.198895990664407e-39
-llama-3.1-70B-instruct,with_context_and_misleading,180,0.022222222222222223,0.9777777777777777,0.9611111111111111,7,4,0.2744140625
-llama-3.1-8B-instruct,raw,180,0.05555555555555555,0.9,0.5833333333333334,62,5,7.097669891056868e-14
-llama-3.1-8B-instruct,with_context,180,0.027777777777777776,0.95,0.36666666666666664,109,4,6.431949272142332e-28
-llama-3.1-8B-instruct,with_context_and_misleading,180,0.05555555555555555,0.9555555555555556,0.9222222222222223,14,8,0.14313936233520508
-qwen-2.5-72B-instruct,raw,180,0.005555555555555556,0.95,0.40555555555555556,100,2,1.036168799007799e-27
-qwen-2.5-72B-instruct,with_context,180,0.011111111111111112,0.9777777777777777,0.3055555555555556,122,1,1.1660903960157092e-35
-qwen-2.5-72B-instruct,with_context_and_misleading,180,0.022222222222222223,0.9888888888888889,0.9555555555555556,8,2,0.0546875
+model,condition,train_deception_types,test_deception_types,n_test,rate_true,rate_false,rate_misleading,b,c,p
+gemma-3-27B-instruct,raw,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.011111111111111112,0.9333333333333333,0.5055555555555555,81,4,5.498711556279808e-20
+gemma-3-27B-instruct,with_context,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.022222222222222223,0.95,0.2777777777777778,124,3,2.0071801139160724e-33
+gemma-3-27B-instruct,with_context_and_misleading,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.03333333333333333,0.95,0.85,24,6,0.0007154531776905061
+llama-3.1-70B-instruct,raw,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.011111111111111112,0.9555555555555556,0.24444444444444444,128,0,2.938735877055719e-39
+llama-3.1-70B-instruct,with_context,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.011111111111111112,0.9555555555555556,0.25555555555555554,126,0,1.1754943508222875e-38
+llama-3.1-70B-instruct,with_context_and_misleading,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.011111111111111112,0.9777777777777777,0.8722222222222222,22,3,7.826089859008789e-05
+llama-3.1-8B-instruct,raw,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.044444444444444446,0.9166666666666666,0.5777777777777777,66,5,5.9509383911523356e-15
+llama-3.1-8B-instruct,with_context,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.03333333333333333,0.9611111111111111,0.37222222222222223,109,3,4.5114716354276556e-29
+llama-3.1-8B-instruct,with_context_and_misleading,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.03888888888888889,0.9722222222222222,0.8055555555555556,35,5,6.91306013322901e-07
+qwen-2.5-72B-instruct,raw,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.005555555555555556,0.9333333333333333,0.4111111111111111,98,4,8.72978918481765e-25
+qwen-2.5-72B-instruct,with_context,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.011111111111111112,0.9944444444444445,0.35555555555555557,115,0,2.407412430484045e-35
+qwen-2.5-72B-instruct,with_context_and_misleading,abstraction; augmentation; contr_distraction; equivocation; obfuscation,FI_quantity; FI_relevance; half_truth; overstatement; understatement,180,0.022222222222222223,1.0,0.8444444444444444,28,0,3.725290298461914e-09
