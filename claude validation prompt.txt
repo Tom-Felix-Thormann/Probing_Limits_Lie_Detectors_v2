@@ -1,5 +1,7 @@
-
-The statements in this dataset are answers to the respective questions in the same row's context. They may or may not be deceptive, suggesting something that they do not explicitly say. Please infer, for each row, which deception type they belong to, if any. If they do not belong to any of these deception types, enter "None of the deception types fits". Enter your answer in the column deception_type. If you have selected one deception type, additionally infer the statement that, in combination with the context, is suggested. Enter your answer in the column implied_statement. If you selected "None of the deception types fits", leave this column blank in that row.
+##############################
+######## FIRST PROMPT ########
+##############################
+The statements in this dataset (shuffled and blinded) are answers to the respective questions in the same row's context. They may or may not be deceptive, suggesting something that they do not explicitly say. Please infer, for each row, which deception type they belong to, if any. If they do not belong to any of these deception types, enter "None of the deception types fits". Enter your answer in the column deception_type. If you have selected one deception type, additionally infer the statement that, in combination with the context, is suggested. Enter your answer in the column implied_statement. If you selected "None of the deception types fits", leave this column blank in that row.
 
 Here are the definitions of the different deception types:
 
@@ -24,4 +26,8 @@ DEFINITIONS = {
     "augmentation": "In augmentation, S adds something gratuitous to the truth, thereby deceiving H.",
 }
 
-Also, decide if the implied_statement_misleading matches the false_answer in the manual_entries_completed dataset (yes / no). To answer with "yes", does not need to be a perfect, literal match, but should be equivalent in the context of the question.
+
+#############################
+####### SECOND PROMPT #######
+#############################
+Decide if the implied_statement_misleading matches the false_answer in the manual_entries_completed dataset (yes / no). To answer with "yes", it does not need to be a perfect, literal match, but should be equivalent in the context of the question.
