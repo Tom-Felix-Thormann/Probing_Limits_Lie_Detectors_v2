@@ -73,8 +73,15 @@ def evaluate(model_name, acts, statements):
         probe = fit_probe(X[train], labels[train])
         for held_out in sorted(set(statement_type) - set(TRAIN_STATEMENT_TYPES)):
             test = is_generated & (statement_type == held_out)
-            accuracy = (probe.predict(X[test]) == labels[test]).mean()
-            type_rows.append({**base, "test_statement_type": held_out, "n_test": int(test.sum()), "accuracy": accuracy})
+            predicted, truth = probe.predict(X[test]), labels[test]
+            type_rows.append({
+                **base, "test_statement_type": held_out, "n_test": int(test.sum()),
+                "accuracy": (predicted == truth).mean(),
+                "n_true": int((truth == 1).sum()),
+                "n_false": int((truth == 0).sum()),
+                "true_classified_false": int(((truth == 1) & (predicted == 0)).sum()),
+                "false_classified_true": int(((truth == 0) & (predicted == 1)).sum()),
+            })
 
         probe = fit_probe(X[pool], labels[pool])
         test = statements[is_manual_test].copy()

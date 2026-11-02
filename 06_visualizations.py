@@ -1,8 +1,9 @@
 """Step 6: figures for the paper.
 
-1. fig_dataset_validation          validation of the manual dataset: share of correctly inferred deception types
-                                   (and of unrelated answers recognized as fitting none) and share of implied
-                                   statements that match the false answer, per deception type
+1. fig_dataset_validation          validation of the manual dataset: per deception type, share of implied statements
+                                   that match the false answer and share of correctly inferred deception types
+                                   (grouped bars), plus the share of unrelated answers recognized as fitting none;
+                                   fig_dataset_validation_statement_type: the same per statement type (conj, disj, ...)
 2. fig_forced_choice_responses     forced choice task (03): chosen options per model and condition (counts)
 3. fig_forced_choice_rates         forced choice task: rate of the target option per condition, with Wilson CIs
                                    and the Holm-corrected McNemar tests (DWL vs LIE, DWL vs DWL-U)
@@ -42,6 +43,7 @@ PROBES_DIR = RESULTS_DIR / "probes"
 ALPHA = 0.01  # significance level of the (Holm-corrected) tests, as in the paper
 TEXT_WIDTH = 7.0  # inches, two-column AAAI layout
 NONE_FITS_TYPE = "None of the deception types fits"  # answer of the validation model for unrelated answers
+STATEMENT_TYPE_COLUMN = "statement_type"  # column of the validation sheet with the statement type (conj, disj, ...)
 
 # ---------------------------------------------------------------------------
 # Labels (edit here to rename things in all figures)
@@ -150,7 +152,7 @@ def figure_legend(fig, color_entries, abbreviations, ncol, extra=(), y=0.0):
     handles += [Abbreviation(abbr) for abbr, _ in abbreviations]
     labels += [explanation for _, explanation in abbreviations]
     # the handle box must be wide enough for the longest bold abbreviation (~0.8 font sizes per character)
-    handlelength = max(2.2, 0.8 * max(len(abbr) for abbr, _ in abbreviations))
+    handlelength = max([2.2] + [0.8 * len(abbr) for abbr, _ in abbreviations])
     fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, y), ncol=ncol,
                handler_map={Abbreviation: AbbreviationHandler()}, handlelength=handlelength, columnspacing=1.5)
 
@@ -214,60 +216,83 @@ def norm(series):
 # ---------------------------------------------------------------------------
 # 1. Dataset validation
 # ---------------------------------------------------------------------------
-def plot_dataset_validation():
-    df = pd.read_excel(VALIDATION_PATH)
-    types = [t for t in DECEPTION_TYPE_LABELS if t in set(df["deception_type"])]
-    type_correct = norm(df["deception_type_misleading"]) == norm(df["deception_type"])
-    unrelated_correct = norm(df["deception_type_unrelated"]) == NONE_FITS_TYPE.lower()
-    implied_match = norm(df["implied_misleading_matches_false_answer"]) == "yes"
-
-    def summary(values):
-        grouped = pd.DataFrame({"type": df["deception_type"], "v": values}).groupby("type")["v"]
-        return grouped.sum().reindex(types), grouped.size().reindex(types)
-
-    panels = [
-        ("Deception type inferred correctly", *summary(type_correct), True),
-        ("Implied statement matches false answer", *summary(implied_match), False),
+def validation_chart(df, group_column, group_labels, name):
+    """One grouped horizontal bar chart: per group (deception type or statement type) a bar for the implied
+    statements that match the false answer and a bar for the correctly inferred deception types; at the very bottom
+    one bar for the unrelated answers that were recognized as fitting no deception type. All with 95% Wilson CIs,
+    plus a dashed line at the chance level of inferring the right type (over the groups only)."""
+    present = set(df[group_column].dropna())
+    groups = [g for g in group_labels if g in present] + sorted(present - set(group_labels), key=str)
+    grouped = df.groupby(group_column)
+    n_per_group = grouped.size().reindex(groups)
+    bars = [  # (column, legend label, color, hatch), top to bottom within a group
+        ("implied_match", "implied statement matches false answer", ANSWERS["misleading"][1], "////"),
+        ("type_correct", "deception type inferred correctly", ANSWERS["misleading"][1], None),
     ]
-    rows = types + ["unrelated"]
-    y = np.arange(len(rows))[::-1]  # first type at the top
+    unrelated_bar = ("unrelated answer recognized as fitting no deception type", ANSWERS["unrelated"][1], None)
+    unrelated_correct = df["unrelated_correct"]
 
-    fig, axes = plt.subplots(1, 2, figsize=(TEXT_WIDTH, 3.2), sharey=True)
-    for ax, (title, k, n, with_unrelated) in zip(axes, panels):
-        rate = (k / n).to_numpy()
-        lows, highs = zip(*[wilson(ki, ni) for ki, ni in zip(k, n)])
-        colors = [ANSWERS["misleading"][1]] * len(types)
-        if with_unrelated:  # unrelated answers: correct if the model said that no deception type fits
-            rate = np.append(rate, unrelated_correct.mean())
-            low, high = wilson(unrelated_correct.sum(), unrelated_correct.size)
-            lows, highs = (*lows, low), (*highs, high)
-            colors.append(ANSWERS["unrelated"][1])
-        yy = y[: len(rate)]
-        ax.barh(yy, rate, height=0.65, color=colors, edgecolor="white", linewidth=0.6)
-        ax.errorbar(rate, yy, xerr=[rate - np.array(lows), np.array(highs) - rate], fmt="none",
-                    ecolor=TEXT, elinewidth=0.7, capsize=1.8, capthick=0.7)
+    bar_height = 0.38
+    y_groups = np.arange(len(groups))[::-1] + 1.0  # first group at the top; the unrelated answers sit at y = 0
+    offsets = (np.arange(len(bars))[::-1] - (len(bars) - 1) / 2) * bar_height  # first bar on top within a group
+
+    fig, ax = plt.subplots(figsize=(TEXT_WIDTH, 0.36 * (len(groups) + 1) + 0.6))
+
+    def draw(yy, k, n, color, hatch):
+        k, n = np.asarray(k), np.asarray(n)
+        rate = k / n
+        lows, highs = map(np.array, zip(*[wilson(ki, ni) for ki, ni in zip(k, n)]))
+        ax.barh(yy, rate, height=bar_height, color=color, hatch=hatch,
+                edgecolor="#7a6a00" if hatch else "white", linewidth=0 if hatch else 0.6)
+        ax.errorbar(rate, yy, xerr=[rate - lows, highs - rate], fmt="none",
+                    ecolor=TEXT, elinewidth=0.7, capsize=1.5, capthick=0.7)
         for yi, r, h in zip(yy, rate, highs):
-            ax.text(h + 0.02, yi, f"{r:.0%}", va="center", fontsize=7)
-        if with_unrelated:
-            ax.axhline(y[len(types)] + 0.5, color=TEXT, linewidth=0.6, linestyle=(0, (3, 3)))
-        ax.set_xlim(0, 1.12)
-        ax.set_xticks(np.linspace(0, 1, 6))
-        ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
-        ax.grid(axis="x", color=GRID, linestyle="--", linewidth=0.7)
-        ax.tick_params(axis="y", length=0)
-        ax.set_title(title, loc="left")
-    n_per_type = df.groupby("deception_type").size()
-    axes[0].set_yticks(y)
-    axes[0].set_yticklabels(
-        [f"{DECEPTION_TYPE_LABELS[t]} (n={n_per_type[t]})" for t in types]
-        + [f"unrelated answers (n={unrelated_correct.size})"]
-    )
-    fig.tight_layout()
-    save(fig, "fig_dataset_validation")
+            ax.text(h + 0.012, yi, f"{r:.0%}", va="center", fontsize=6.5)
 
-    print(f"\nDeception type inferred correctly: {type_correct.mean():.1%} overall; "
-          f"unrelated answers recognized: {unrelated_correct.mean():.1%}")
-    print(f"Implied statement matches false answer: {implied_match.mean():.1%} overall")
+    for offset, (column, _, color, hatch) in zip(offsets, bars):
+        draw(y_groups + offset, grouped[column].sum().reindex(groups), n_per_group, color, hatch)
+    draw([0.0], [unrelated_correct.sum()], [unrelated_correct.size], *unrelated_bar[1:])
+    ax.axhline(0.5, color=TEXT, linewidth=0.6, linestyle=(0, (3, 3)))  # separates the unrelated answers
+    # chance level of inferring the right type (1 of the deception types), over the groups only
+    type_chance = 1 / len(DECEPTION_TYPE_LABELS)
+    y_top = y_groups[0] + 0.6
+    ax.plot([type_chance, type_chance], [0.5, y_top], color=TEXT, linewidth=0.7, linestyle=(0, (3, 3)), zorder=2.5)
+
+    ax.set_yticks(np.append(y_groups, 0.0))
+    ax.set_yticklabels([f"{group_labels.get(g, g)} (n={n_per_group[g]})" for g in groups]
+                       + [f"unrelated answers (n={unrelated_correct.size})"])
+    ax.set_ylim(-0.6, y_top)
+    ax.set_xlim(0, 1.12)
+    ax.set_xticks(np.linspace(0, 1, 6))
+    ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+    ax.set_xlabel("Share of answers")
+    ax.grid(axis="x", color=GRID, linestyle="--", linewidth=0.7)
+    ax.tick_params(axis="y", length=0)
+    fig.tight_layout()
+    figure_legend(fig, [(label, color, hatch) for _, label, color, hatch in bars] + [unrelated_bar], [], ncol=2,
+                  extra=[(chance_handle(), f"chance of inferring the right type (1 of {len(DECEPTION_TYPE_LABELS)})")])
+    save(fig, name)
+
+    summary = grouped[["implied_match", "type_correct", "unrelated_correct"]].mean().reindex(groups)
+    print(f"\nValidation by {group_column}:\n", summary.round(3).to_string())
+
+
+def plot_dataset_validation():
+    """fig_dataset_validation (by deception type) and fig_dataset_validation_statement_type (by statement type)."""
+    df = pd.read_excel(VALIDATION_PATH)
+    df["type_correct"] = norm(df["deception_type_misleading"]) == norm(df["deception_type"])
+    df["unrelated_correct"] = norm(df["deception_type_unrelated"]) == NONE_FITS_TYPE.lower()
+    df["implied_match"] = norm(df["implied_misleading_matches_false_answer"]) == "yes"
+
+    validation_chart(df, "deception_type", DECEPTION_TYPE_LABELS, "fig_dataset_validation")
+    if STATEMENT_TYPE_COLUMN in df:
+        validation_chart(df, STATEMENT_TYPE_COLUMN, STATEMENT_TYPE_LABELS, "fig_dataset_validation_statement_type")
+    else:
+        print(f"Skipping the validation by statement type: no column '{STATEMENT_TYPE_COLUMN}' in {VALIDATION_PATH}")
+
+    print(f"\nDeception type inferred correctly: {df['type_correct'].mean():.1%} overall; "
+          f"unrelated answers recognized: {df['unrelated_correct'].mean():.1%}")
+    print(f"Implied statement matches false answer: {df['implied_match'].mean():.1%} overall")
 
 
 # ---------------------------------------------------------------------------
