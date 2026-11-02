@@ -2,3 +2,9 @@ venv/
 .venv/
 model_weights/
 model_weights
+slurm
+slurm/
+__pycache__
+__pycache__/
+logs
+logs/
